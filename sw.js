@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sensorscope-v1';
+const CACHE_NAME = 'sensorscope-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -35,22 +35,21 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: cache-first for static, network-first for others
+// Fetch: network-first, fallback to cache
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((response) => {
-        // Don't cache non-GET or external requests
-        if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
-          return response;
-        }
+    fetch(event.request).then((response) => {
+      // Cache successful GET responses
+      if (event.request.method === 'GET' && event.request.url.startsWith(self.location.origin)) {
         const clone = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        return response;
-      });
+      }
+      return response;
     }).catch(() => {
-      // Offline fallback
-      return caches.match('./index.html');
+      // Offline: fallback to cache
+      return caches.match(event.request).then((cached) => {
+        return cached || caches.match('./index.html');
+      });
     })
   );
 });

@@ -3,17 +3,19 @@
 // =============================================
 
 import { RealtimeGraph } from '../graph.js';
-import { formatNumber } from '../utils.js';
+import { formatNumber, formatDuration } from '../utils.js';
 
 export class DashboardPage {
   constructor(app) {
     this.app = app;
     this.graphs = {};
     this._container = null;
+    this._recordingTimerInterval = null;
   }
 
   mount(container) {
     this._container = container;
+    const isRecording = this.app.recorder.isRecording;
 
     container.innerHTML = `
       <div class="dashboard page">
@@ -94,11 +96,52 @@ export class DashboardPage {
             </div>
           </div>
         </div>
+
+        <!-- Recording Controls -->
+        <div class="dashboard__recording card card--no-press" id="recording-panel">
+          <div class="dashboard__recording-header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent-red)">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="3" fill="currentColor"/>
+            </svg>
+            <span class="card__title">記録</span>
+            <span id="rec-sample-count" class="dashboard__recording-count" style="display: ${isRecording ? 'inline' : 'none'}">0 samples</span>
+          </div>
+
+          <!-- Idle state -->
+          <div id="rec-idle" style="display: ${isRecording ? 'none' : 'flex'}; flex-direction: column; gap: var(--space-sm);">
+            <p style="font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5;">
+              全センサーのデータをまとめて記録します。<br>記録はRecordingsページからダウンロードできます。
+            </p>
+            <button class="btn btn--primary" id="rec-start-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <circle cx="12" cy="12" r="8"/>
+              </svg>
+              記録を開始
+            </button>
+          </div>
+
+          <!-- Recording state -->
+          <div id="rec-active" style="display: ${isRecording ? 'flex' : 'none'}; flex-direction: column; gap: var(--space-sm);">
+            <div class="dashboard__recording-status">
+              <span class="dashboard__recording-indicator"></span>
+              <span style="font-size: 0.8125rem; font-weight: 600; color: var(--accent-red);">REC</span>
+              <span id="rec-elapsed" style="font-family: var(--font-mono); font-size: 1.125rem; font-weight: 600; flex: 1; text-align: center;">00:00</span>
+            </div>
+            <button class="btn btn--outline" id="rec-stop-btn" style="border-color: rgba(255,71,87,0.4); color: var(--accent-red);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <rect x="6" y="6" width="12" height="12" rx="2"/>
+              </svg>
+              記録を停止して保存
+            </button>
+          </div>
+        </div>
       </div>
     `;
 
     this._initGraphs();
     this._startSensors();
+    this._initRecordingUI();
 
     // Card click → detail
     container.querySelectorAll('.card[data-sensor]').forEach((card) => {
@@ -107,6 +150,79 @@ export class DashboardPage {
         this.app.navigate(`#/detail/${type}`);
       });
     });
+
+    // Restore timer if already recording
+    if (isRecording) {
+      this._startRecordingTimer();
+    }
+  }
+
+  _initRecordingUI() {
+    const startBtn = this._container.querySelector('#rec-start-btn');
+    const stopBtn = this._container.querySelector('#rec-stop-btn');
+
+    startBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._startRecordingFromDashboard();
+    });
+
+    stopBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._stopRecordingFromDashboard();
+    });
+  }
+
+  _startRecordingFromDashboard() {
+    // Start recording all sensors
+    this.app.startRecording(['acceleration', 'rotationRate', 'orientation', 'geolocation']);
+
+    // Update UI
+    const idleEl = this._container.querySelector('#rec-idle');
+    const activeEl = this._container.querySelector('#rec-active');
+    const countEl = this._container.querySelector('#rec-sample-count');
+
+    if (idleEl) idleEl.style.display = 'none';
+    if (activeEl) activeEl.style.display = 'flex';
+    if (countEl) countEl.style.display = 'inline';
+
+    this._startRecordingTimer();
+  }
+
+  _startRecordingTimer() {
+    const elapsedEl = this._container?.querySelector('#rec-elapsed');
+    const countEl = this._container?.querySelector('#rec-sample-count');
+
+    this._recordingTimerInterval = setInterval(() => {
+      if (elapsedEl) {
+        elapsedEl.textContent = formatDuration(this.app.recorder.elapsedMs);
+      }
+      if (countEl && this.app.recorder._samples) {
+        const n = this.app.recorder._samples.length;
+        countEl.textContent = `${n.toLocaleString()} samples`;
+      }
+    }, 200);
+  }
+
+  async _stopRecordingFromDashboard() {
+    // Stop local timer
+    if (this._recordingTimerInterval) {
+      clearInterval(this._recordingTimerInterval);
+      this._recordingTimerInterval = null;
+    }
+
+    // Use the app's stop recording (shows modal for title)
+    await this.app.stopRecording();
+
+    // Update UI back to idle
+    const idleEl = this._container?.querySelector('#rec-idle');
+    const activeEl = this._container?.querySelector('#rec-active');
+    const countEl = this._container?.querySelector('#rec-sample-count');
+    const elapsedEl = this._container?.querySelector('#rec-elapsed');
+
+    if (idleEl) idleEl.style.display = 'flex';
+    if (activeEl) activeEl.style.display = 'none';
+    if (countEl) { countEl.style.display = 'none'; countEl.textContent = '0 samples'; }
+    if (elapsedEl) elapsedEl.textContent = '00:00';
   }
 
   _initGraphs() {
@@ -234,6 +350,12 @@ export class DashboardPage {
   }
 
   unmount() {
+    // Stop recording timer
+    if (this._recordingTimerInterval) {
+      clearInterval(this._recordingTimerInterval);
+      this._recordingTimerInterval = null;
+    }
+
     // Stop graphs
     Object.values(this.graphs).forEach((g) => g.stopRendering());
     this.graphs = {};

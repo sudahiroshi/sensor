@@ -789,6 +789,45 @@ input[type="range"]::-webkit-slider-thumb {
   gap: var(--space-md);
 }
 
+/* --- Dashboard Recording Panel --- */
+.dashboard__recording {
+  margin-top: var(--space-md);
+}
+
+.dashboard__recording-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.dashboard__recording-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--accent-red);
+  background: rgba(255, 71, 87, 0.12);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+}
+
+.dashboard__recording-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+}
+
+.dashboard__recording-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-red);
+  animation: pulse 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
 /* --- Detail Page --- */
 .detail {
   padding: 0 var(--space-md) var(--space-md);
