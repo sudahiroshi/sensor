@@ -178,10 +178,19 @@ class App {
     const overlay = document.getElementById('modal-overlay');
     const content = document.getElementById('modal-content');
 
+    const now = new Date();
+    const defaultName = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+      String(now.getHours()).padStart(2, '0'),
+      String(now.getMinutes()).padStart(2, '0'),
+    ].join('');
+
     content.innerHTML = `
       <div class="modal__title">記録を保存</div>
       <div class="modal__text">記録にタイトルを付けてください。</div>
-      <input class="input mb-md" id="recording-title" type="text" placeholder="Recording title..." autofocus>
+      <input class="input mb-md" id="recording-title" type="text" value="${defaultName}" placeholder="Recording title..." autofocus>
       <div class="modal__actions">
         <button class="btn btn--secondary" id="save-recording">保存</button>
         <button class="btn btn--outline" id="discard-recording">破棄</button>
@@ -193,7 +202,7 @@ class App {
     return new Promise((resolve) => {
       content.querySelector('#save-recording').addEventListener('click', async () => {
         const title = content.querySelector('#recording-title').value.trim();
-        const recording = await this.recorder.stopRecording(title || undefined);
+        const recording = await this.recorder.stopRecording(title || defaultName);
         overlay.classList.add('hidden');
         resolve(recording);
       });
