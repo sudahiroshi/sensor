@@ -12,15 +12,27 @@ export class SettingsPage {
     this._container = container;
 
     const settings = this.app.getSettings();
+    const currentTheme = settings.theme || 'dark';
 
     container.innerHTML = `
       <div class="settings page">
         <div class="page-header">
-          <h1 class="page-header__title">Settings</h1>
+          <h1 class="page-header__title">Settings <span class="page-header__title-ja">設定</span></h1>
         </div>
 
         <div class="settings__section">
-          <div class="settings__section-title">Graph</div>
+          <div class="settings__section-title">Appearance 外観</div>
+          <div class="settings__item">
+            <span class="settings__item-label">Theme テーマ</span>
+            <div class="segment-control" id="setting-theme" style="width: auto; min-width: 140px;">
+              <button class="segment-control__item ${currentTheme === 'dark' ? 'active' : ''}" data-value="dark">🌙 Dark</button>
+              <button class="segment-control__item ${currentTheme === 'light' ? 'active' : ''}" data-value="light">☀️ Light</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings__section">
+          <div class="settings__section-title">Graph グラフ</div>
           <div class="settings__item">
             <span class="settings__item-label">Default Duration</span>
             <select class="input" id="setting-duration" style="width: auto; min-height: 36px; padding: 4px 8px;">
@@ -40,7 +52,7 @@ export class SettingsPage {
         </div>
 
         <div class="settings__section">
-          <div class="settings__section-title">Export</div>
+          <div class="settings__section-title">Export エクスポート</div>
           <div class="settings__item">
             <span class="settings__item-label">Default Format</span>
             <select class="input" id="setting-format" style="width: auto; min-height: 36px; padding: 4px 8px;">
@@ -51,7 +63,7 @@ export class SettingsPage {
         </div>
 
         <div class="settings__section">
-          <div class="settings__section-title">Sensors</div>
+          <div class="settings__section-title">Sensors センサー</div>
           <div class="settings__item">
             <span class="settings__item-label">Motion Sensor</span>
             <span class="settings__item-value" id="status-motion">—</span>
@@ -67,7 +79,7 @@ export class SettingsPage {
         </div>
 
         <div class="settings__section">
-          <div class="settings__section-title">Data</div>
+          <div class="settings__section-title">Data データ</div>
           <button class="btn btn--danger" id="setting-clear-all" style="margin-bottom: var(--space-sm);">
             すべての記録を削除
           </button>
@@ -80,7 +92,7 @@ export class SettingsPage {
           <div class="settings__section-title">About</div>
           <div class="settings__item" style="border-radius: var(--radius-md);">
             <span class="settings__item-label">SensorScope</span>
-            <span class="settings__item-value">v1.0.0</span>
+            <span class="settings__item-value">v1.1.0</span>
           </div>
         </div>
       </div>
@@ -107,6 +119,18 @@ export class SettingsPage {
   }
 
   _bindEvents() {
+    // Theme setting
+    this._container.querySelector('#setting-theme').addEventListener('click', (e) => {
+      const btn = e.target.closest('.segment-control__item');
+      if (!btn) return;
+      const theme = btn.dataset.value;
+      this.app.updateSettings({ theme });
+      this.app.applyTheme();
+
+      this._container.querySelectorAll('#setting-theme .segment-control__item').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+
     // Duration setting
     this._container.querySelector('#setting-duration').addEventListener('change', (e) => {
       this.app.updateSettings({ defaultTimeWindow: parseInt(e.target.value) });

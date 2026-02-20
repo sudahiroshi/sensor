@@ -64,6 +64,81 @@
   --recording-bar-height: 44px;
 }
 
+/* --- Light Theme Override --- */
+[data-theme="light"] {
+  --bg-primary: #f0f2f5;
+  --bg-secondary: #ffffff;
+  --bg-card: rgba(0, 0, 0, 0.04);
+  --bg-card-hover: rgba(0, 0, 0, 0.07);
+  --border-card: rgba(0, 0, 0, 0.08);
+  --border-glow: rgba(99, 102, 241, 0.12);
+
+  --accent-red: #e03e4e;
+  --accent-blue: #2886d9;
+  --accent-green: #37b24d;
+  --accent-purple: #7048e8;
+  --accent-amber: #e67700;
+
+  --color-x: #e03131;
+  --color-y: #2b8a3e;
+  --color-z: #1971c2;
+  --color-alpha: #0c8599;
+  --color-beta: #c2255c;
+  --color-gamma: #e67700;
+
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --text-tertiary: #adb5bd;
+}
+
+[data-theme="light"] .bottom-nav {
+  background: rgba(255, 255, 255, 0.88);
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .recording-bar {
+  background: linear-gradient(135deg, rgba(224, 62, 78, 0.95), rgba(180, 30, 50, 0.95));
+}
+
+[data-theme="light"] .modal-content {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .welcome__title {
+  -webkit-text-fill-color: unset;
+  color: var(--accent-blue);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-theme="light"] .dashboard__logo {
+  -webkit-text-fill-color: unset;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-theme="light"] input[type="range"] {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .btn--outline {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .input {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
 /* --- Reset --- */
 *,
 *::before,
@@ -89,6 +164,7 @@ body {
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 a {
@@ -290,6 +366,20 @@ body.recording #app {
   font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+}
+
+.card__title-ja {
+  font-weight: 400;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+.page-header__title-ja {
+  font-weight: 400;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-left: 4px;
 }
 
 .card__chart {

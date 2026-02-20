@@ -44,6 +44,9 @@ class App {
     // Open IndexedDB
     await this.recorder.open();
 
+    // Apply saved theme
+    this.applyTheme();
+
     // Setup routing
     window.addEventListener('hashchange', () => this._onRoute());
 
@@ -217,11 +220,22 @@ class App {
     localStorage.setItem('sensorscope_settings', JSON.stringify(this._settings));
   }
 
+  applyTheme() {
+    const theme = this._settings.theme || 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    // Update meta theme-color
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.content = theme === 'light' ? '#f0f2f5' : '#0a0e1a';
+    }
+  }
+
   _loadSettings() {
     const defaults = {
       defaultTimeWindow: 10,
       showGrid: true,
       defaultFormat: 'csv',
+      theme: 'dark',
     };
 
     try {

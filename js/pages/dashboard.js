@@ -34,7 +34,7 @@ export class DashboardPage {
               <svg class="card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
               </svg>
-              <span class="card__title">Acceleration</span>
+              <span class="card__title">Acceleration <span class="card__title-ja">加速度</span></span>
             </div>
             <canvas class="card__chart" id="chart-accel"></canvas>
             <div class="card__values">
@@ -52,7 +52,7 @@ export class DashboardPage {
                 <path d="M2.5 15.5A10 10 0 0 1 21.5 8.5"/>
                 <path d="M21.5 8.5A10 10 0 0 1 2.5 15.5"/>
               </svg>
-              <span class="card__title">Rotation Rate</span>
+              <span class="card__title">Rotation Rate <span class="card__title-ja">回転速度</span></span>
             </div>
             <canvas class="card__chart" id="chart-gyro"></canvas>
             <div class="card__values">
@@ -69,7 +69,7 @@ export class DashboardPage {
                 <circle cx="12" cy="12" r="10"/>
                 <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
               </svg>
-              <span class="card__title">Orientation</span>
+              <span class="card__title">Orientation <span class="card__title-ja">姿勢</span></span>
             </div>
             <canvas class="card__chart" id="chart-orient"></canvas>
             <div class="card__values">
@@ -86,7 +86,7 @@ export class DashboardPage {
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
                 <circle cx="12" cy="10" r="3"/>
               </svg>
-              <span class="card__title">GPS Location</span>
+              <span class="card__title">GPS Location <span class="card__title-ja">位置情報</span></span>
             </div>
             <div class="card__values" style="flex-direction: column; gap: 4px;">
               <span class="card__value">Lat: <span id="val-gps-lat" class="text-mono">—</span></span>

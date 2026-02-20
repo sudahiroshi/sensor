@@ -8,6 +8,7 @@ import { formatNumber } from '../utils.js';
 const SENSOR_CONFIG = {
   acceleration: {
     title: 'Acceleration',
+    titleJa: '加速度',
     unit: 'm/s²',
     lines: [
       { key: 'x', label: 'X', color: '#ff6b6b' },
@@ -26,6 +27,7 @@ const SENSOR_CONFIG = {
   },
   rotationRate: {
     title: 'Rotation Rate',
+    titleJa: '回転速度',
     unit: '°/s',
     lines: [
       { key: 'alpha', label: 'α', color: '#22d3ee' },
@@ -44,6 +46,7 @@ const SENSOR_CONFIG = {
   },
   orientation: {
     title: 'Orientation',
+    titleJa: '姿勢',
     unit: '°',
     lines: [
       { key: 'alpha', label: 'α', color: '#22d3ee' },
@@ -99,7 +102,7 @@ export class DetailPage {
               <polyline points="15 18 9 12 15 6"/>
             </svg>
           </button>
-          <h1 class="page-header__title">${c.title}</h1>
+          <h1 class="page-header__title">${c.title} <span class="page-header__title-ja">${c.titleJa}</span></h1>
           <label class="toggle">
             <input type="checkbox" id="detail-toggle" checked>
             <span class="toggle__slider"></span>
