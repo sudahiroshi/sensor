@@ -176,9 +176,10 @@ export class RealtimeGraph {
   }
 
   _drawGrid(ctx, p, plotW, plotH, tMin, tMax, yMin, yMax) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.06)';
     ctx.lineWidth = 1;
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillStyle = isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.3)';
     ctx.font = '10px Inter, sans-serif';
 
     // Horizontal grid lines (Y axis)
