@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sensorscope-v2';
+const CACHE_NAME = 'sensorscope-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const ASSETS = [
   './js/pages/detail.js',
   './js/pages/recordings.js',
   './js/pages/settings.js',
+  './js/pages/position.js',
   './manifest.json'
 ];
 

@@ -10,6 +10,7 @@ import { DashboardPage } from './pages/dashboard.js';
 import { DetailPage } from './pages/detail.js';
 import { RecordingsPage } from './pages/recordings.js';
 import { SettingsPage } from './pages/settings.js';
+import { PositionPage } from './pages/position.js';
 
 class App {
   constructor() {
@@ -28,6 +29,7 @@ class App {
       detail: new DetailPage(this),
       recordings: new RecordingsPage(this),
       settings: new SettingsPage(this),
+      position: new PositionPage(this),
     };
   }
 
@@ -93,6 +95,8 @@ class App {
       pageName = 'recordings';
     } else if (hash === '#/settings') {
       pageName = 'settings';
+    } else if (hash === '#/position') {
+      pageName = 'position';
     } else {
       pageName = 'dashboard';
     }
@@ -131,6 +135,7 @@ class App {
       detail: 'dashboard',
       recordings: 'recordings',
       settings: 'settings',
+      position: 'position',
     };
 
     const activePage = navMap[pageName] || '';
