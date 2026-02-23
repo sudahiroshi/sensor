@@ -9,10 +9,15 @@ import { formatNumber } from '../utils.js';
 
 // --- Constants ---
 const GRAVITY = 9.81;
-const ZUPT_VELOCITY_THRESHOLD = 0.15; // m/s — below this, assume stationary
-const ZUPT_ACCEL_THRESHOLD = 0.5;     // m/s² — accel noise floor
-const LP_ALPHA = 0.3;                 // Low-pass filter strength (0–1, lower = smoother)
-const TRAIL_MAX = 500;                // Max trail points to keep
+const ACCEL_DEADZONE_XY = 0.4;        // m/s² — XY noise floor
+const ACCEL_DEADZONE_Z = 0.6;         // m/s² — Z noise floor (higher, gravity residual)
+const ZUPT_VELOCITY_THRESHOLD = 0.08; // m/s — below this + low accel => stationary
+const ZUPT_ACCEL_THRESHOLD = 0.6;     // m/s² — used for stillness detection
+const LP_ALPHA = 0.15;                // Low-pass filter (lower = smoother, more lag)
+const VELOCITY_DAMPING = 0.97;        // Per-frame velocity decay (fights drift)
+const TRAIL_MAX = 500;
+const ACCEL_BUFFER_SIZE = 20;         // Samples for variance-based stillness detection
+const CALIBRATION_SAMPLES = 50;       // Initial calibration period
 
 export class PositionPage {
   constructor(app) {
@@ -26,12 +31,19 @@ export class PositionPage {
     this._filteredAccel = { x: 0, y: 0, z: 0 };
     this._lastTimestamp = null;
     this._orientation = { alpha: 0, beta: 0, gamma: 0 };
-    this._trail = []; // [{x, y}]
-    this._heightHistory = []; // [{t, z}]
+    this._trail = [];
+    this._heightHistory = [];
     this._startTime = 0;
 
+    // Calibration & noise estimation
+    this._accelBuffer = [];      // Recent world-frame accel magnitudes
+    this._calibSamples = 0;
+    this._accelBias = { x: 0, y: 0, z: 0 }; // Estimated bias
+    this._calibrating = true;
+    this._calibAccum = { x: 0, y: 0, z: 0 };
+
     // UI state
-    this._scale = 5; // metres per radar radius
+    this._scale = 5;
     this._radarCanvas = null;
     this._heightCanvas = null;
   }
@@ -121,6 +133,11 @@ export class PositionPage {
     this._trail = [];
     this._heightHistory = [];
     this._startTime = performance.now();
+    this._accelBuffer = [];
+    this._calibSamples = 0;
+    this._accelBias = { x: 0, y: 0, z: 0 };
+    this._calibrating = true;
+    this._calibAccum = { x: 0, y: 0, z: 0 };
   }
 
   // --- Sensor Fusion ---
@@ -139,52 +156,90 @@ export class PositionPage {
 
     // Motion (accelerometer)
     sm.startMotion((data) => {
-      const now = data.timestamp; // performance.now()
+      const now = data.timestamp;
       if (this._lastTimestamp === null) {
         this._lastTimestamp = now;
         return;
       }
 
-      const dt = (now - this._lastTimestamp) / 1000; // seconds
+      const dt = (now - this._lastTimestamp) / 1000;
       this._lastTimestamp = now;
-
-      // Skip unreasonable dt
       if (dt <= 0 || dt > 0.5) return;
 
-      // Get acceleration (without gravity)
-      const ax = data.acceleration.x ?? 0;
-      const ay = data.acceleration.y ?? 0;
-      const az = data.acceleration.z ?? 0;
+      // Use accelerationIncludingGravity and manually subtract gravity.
+      // This is more reliable than device-provided gravity-free acceleration.
+      const rawAx = data.accelerationIncludingGravity.x ?? 0;
+      const rawAy = data.accelerationIncludingGravity.y ?? 0;
+      const rawAz = data.accelerationIncludingGravity.z ?? 0;
 
-      // Transform device acceleration to world frame using orientation
-      const worldAccel = this._deviceToWorld(ax, ay, az);
+      // Transform raw acceleration to world frame
+      const worldRaw = this._deviceToWorld(rawAx, rawAy, rawAz);
+
+      // Subtract gravity (world Z-up = +9.81)
+      const worldAccel = {
+        x: worldRaw.x,
+        y: worldRaw.y,
+        z: worldRaw.z - GRAVITY,
+      };
+
+      // --- Calibration phase: estimate sensor bias while stationary ---
+      if (this._calibrating) {
+        this._calibAccum.x += worldAccel.x;
+        this._calibAccum.y += worldAccel.y;
+        this._calibAccum.z += worldAccel.z;
+        this._calibSamples++;
+        if (this._calibSamples >= CALIBRATION_SAMPLES) {
+          this._accelBias.x = this._calibAccum.x / this._calibSamples;
+          this._accelBias.y = this._calibAccum.y / this._calibSamples;
+          this._accelBias.z = this._calibAccum.z / this._calibSamples;
+          this._calibrating = false;
+        }
+        return; // Don't integrate during calibration
+      }
+
+      // Subtract estimated bias
+      const corrected = {
+        x: worldAccel.x - this._accelBias.x,
+        y: worldAccel.y - this._accelBias.y,
+        z: worldAccel.z - this._accelBias.z,
+      };
 
       // Low-pass filter
-      this._filteredAccel.x = LP_ALPHA * worldAccel.x + (1 - LP_ALPHA) * this._filteredAccel.x;
-      this._filteredAccel.y = LP_ALPHA * worldAccel.y + (1 - LP_ALPHA) * this._filteredAccel.y;
-      this._filteredAccel.z = LP_ALPHA * worldAccel.z + (1 - LP_ALPHA) * this._filteredAccel.z;
+      this._filteredAccel.x = LP_ALPHA * corrected.x + (1 - LP_ALPHA) * this._filteredAccel.x;
+      this._filteredAccel.y = LP_ALPHA * corrected.y + (1 - LP_ALPHA) * this._filteredAccel.y;
+      this._filteredAccel.z = LP_ALPHA * corrected.z + (1 - LP_ALPHA) * this._filteredAccel.z;
 
       const fa = this._filteredAccel;
 
-      // Dead-zone: ignore tiny accelerations (noise)
+      // Per-axis dead zone (ignore noise-level accelerations)
+      const effX = Math.abs(fa.x) > ACCEL_DEADZONE_XY ? fa.x : 0;
+      const effY = Math.abs(fa.y) > ACCEL_DEADZONE_XY ? fa.y : 0;
+      const effZ = Math.abs(fa.z) > ACCEL_DEADZONE_Z ? fa.z : 0;
+
+      // Track acceleration magnitude for stillness detection
       const aMag = Math.sqrt(fa.x * fa.x + fa.y * fa.y + fa.z * fa.z);
-      const effectiveA = {
-        x: aMag > ZUPT_ACCEL_THRESHOLD ? fa.x : 0,
-        y: aMag > ZUPT_ACCEL_THRESHOLD ? fa.y : 0,
-        z: aMag > ZUPT_ACCEL_THRESHOLD ? fa.z : 0,
-      };
+      this._accelBuffer.push(aMag);
+      if (this._accelBuffer.length > ACCEL_BUFFER_SIZE) this._accelBuffer.shift();
 
-      // Integrate acceleration → velocity (trapezoidal)
-      this._vel.x += effectiveA.x * dt;
-      this._vel.y += effectiveA.y * dt;
-      this._vel.z += effectiveA.z * dt;
+      // Variance-based stillness detection
+      const isStill = this._detectStillness();
 
-      // ZUPT: if velocity is very small, snap to zero (drift correction)
+      // Integrate acceleration → velocity
+      this._vel.x += effX * dt;
+      this._vel.y += effY * dt;
+      this._vel.z += effZ * dt;
+
+      // Continuous velocity damping (fights unbounded drift)
+      this._vel.x *= VELOCITY_DAMPING;
+      this._vel.y *= VELOCITY_DAMPING;
+      this._vel.z *= VELOCITY_DAMPING;
+
+      // ZUPT: aggressively zero velocity when stationary
       const vMag = Math.sqrt(this._vel.x ** 2 + this._vel.y ** 2 + this._vel.z ** 2);
-      if (vMag < ZUPT_VELOCITY_THRESHOLD && aMag < ZUPT_ACCEL_THRESHOLD) {
-        this._vel.x *= 0.8;
-        this._vel.y *= 0.8;
-        this._vel.z *= 0.8;
+      if (isStill || (vMag < ZUPT_VELOCITY_THRESHOLD && aMag < ZUPT_ACCEL_THRESHOLD)) {
+        this._vel.x = 0;
+        this._vel.y = 0;
+        this._vel.z = 0;
       }
 
       // Integrate velocity → position
@@ -192,7 +247,7 @@ export class PositionPage {
       this._pos.y += this._vel.y * dt;
       this._pos.z += this._vel.z * dt;
 
-      // Record trail (throttle: every ~50ms)
+      // Record trail
       const lastTrail = this._trail[this._trail.length - 1];
       if (!lastTrail || (now - lastTrail.t) > 50) {
         this._trail.push({ x: this._pos.x, y: this._pos.y, t: now });
@@ -206,21 +261,35 @@ export class PositionPage {
   }
 
   /**
-   * Transform device-frame acceleration to world frame.
-   * Uses simplified rotation from device orientation (alpha, beta, gamma).
+   * Detect if the device is still using variance of recent
+   * acceleration magnitudes.
+   */
+  _detectStillness() {
+    if (this._accelBuffer.length < ACCEL_BUFFER_SIZE) return false;
+    const mean = this._accelBuffer.reduce((s, v) => s + v, 0) / this._accelBuffer.length;
+    const variance = this._accelBuffer.reduce((s, v) => s + (v - mean) ** 2, 0) / this._accelBuffer.length;
+    return variance < 0.1 && mean < ZUPT_ACCEL_THRESHOLD;
+  }
+
+  /**
+   * Transform device-frame vector to world frame.
+   * R = Rz(alpha) * Rx(beta) * Ry(gamma) — ZXY convention
+   * per W3C DeviceOrientation spec.
    */
   _deviceToWorld(ax, ay, az) {
     const { alpha, beta, gamma } = this._orientation;
 
-    // Rotation matrices (ZXY convention used by DeviceOrientation)
     const sa = Math.sin(alpha), ca = Math.cos(alpha);
     const sb = Math.sin(beta),  cb = Math.cos(beta);
     const sg = Math.sin(gamma), cg = Math.cos(gamma);
 
-    // World X (East), Y (North), Z (Up)
-    const wx = ax * (ca * cg + sa * sb * sg) + ay * (sa * sb * cg - ca * sg) + az * (sa * cb);
-    const wy = ax * (cb * sg) + ay * (cb * cg) + az * (-sb);
-    const wz = ax * (ca * sb * sg - sa * cg) + ay * (sa * sg + ca * sb * cg) + az * (ca * cb);
+    // Correct ZXY rotation matrix:
+    // Row 0: [ca·cg - sa·sb·sg,  -sa·cb,  ca·sg + sa·sb·cg]
+    // Row 1: [sa·cg + ca·sb·sg,   ca·cb,  sa·sg - ca·sb·cg]
+    // Row 2: [-cb·sg,              sb,     cb·cg           ]
+    const wx = ax * (ca * cg - sa * sb * sg) + ay * (-sa * cb) + az * (ca * sg + sa * sb * cg);
+    const wy = ax * (sa * cg + ca * sb * sg) + ay * (ca * cb)  + az * (sa * sg - ca * sb * cg);
+    const wz = ax * (-cb * sg)               + ay * sb         + az * (cb * cg);
 
     return { x: wx, y: wy, z: wz };
   }
