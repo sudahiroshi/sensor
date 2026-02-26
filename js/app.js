@@ -64,6 +64,19 @@ class App {
       }
     });
 
+    // Handle tab visibility changes: remount current page when tab
+    // becomes visible again so that rAF + sensor listeners restart with
+    // fresh timestamps (rAF pauses while tab is hidden but
+    // performance.now() keeps advancing, leaving graph data stale).
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this._currentPage) {
+        const skip = ['welcome', 'settings', 'recordings'];
+        if (!skip.includes(this._currentPageName)) {
+          this._remountCurrentPage();
+        }
+      }
+    });
+
     // Initial route
     if (!localStorage.getItem('sensorscope_welcomed')) {
       window.location.hash = '#/welcome';
@@ -126,6 +139,30 @@ class App {
       nav.classList.add('hidden');
     } else {
       nav.classList.remove('hidden');
+    }
+  }
+
+  /**
+   * Unmount and remount the current page in-place.
+   * This restarts sensor listeners and rendering loops after
+   * the browser tab resumes from being hidden.
+   */
+  _remountCurrentPage() {
+    if (!this._currentPage) return;
+
+    // Rebuild params from current hash
+    const hash = window.location.hash || '#/';
+    const params = {};
+    if (hash.startsWith('#/detail/')) {
+      params.type = hash.replace('#/detail/', '');
+    }
+
+    if (this._currentPage.unmount) {
+      this._currentPage.unmount();
+    }
+    this._container.innerHTML = '';
+    if (this._currentPage.mount) {
+      this._currentPage.mount(this._container, params);
     }
   }
 
