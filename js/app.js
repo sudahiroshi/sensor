@@ -64,17 +64,37 @@ class App {
       }
     });
 
-    // Handle tab visibility changes: remount current page when tab
-    // becomes visible again so that rAF + sensor listeners restart with
-    // fresh timestamps (rAF pauses while tab is hidden but
-    // performance.now() keeps advancing, leaving graph data stale).
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && this._currentPage) {
-        const skip = ['welcome', 'settings', 'recordings'];
-        if (!skip.includes(this._currentPageName)) {
-          this._remountCurrentPage();
+    // Handle tab/app visibility changes.
+    // On iOS, switching apps can silently kill sensor listeners.
+    // Strategy: remount page on resume, then check if sensors are
+    // still alive. If not, redirect to welcome for re-permissioning.
+    const handleResume = () => {
+      if (!this._currentPage) return;
+      const skip = ['welcome', 'settings', 'recordings'];
+      if (skip.includes(this._currentPageName)) return;
+
+      this._remountCurrentPage();
+
+      // Watchdog: if no sensor data arrives within 3s, sensors are dead
+      if (this._sensorWatchdog) clearTimeout(this._sensorWatchdog);
+      this._sensorWatchdog = setTimeout(() => {
+        if (!this.sensorManager.isSensorAlive) {
+          console.warn('Sensors unresponsive after resume — redirecting to welcome');
+          this.sensorManager._permissionGranted = false;
+          localStorage.removeItem('sensorscope_welcomed');
+          window.location.hash = '#/welcome';
+          this._onRoute();
         }
-      }
+      }, 3000);
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') handleResume();
+    });
+
+    // pageshow fires more reliably on iOS after app switch
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted) handleResume();
     });
 
     // Initial route

@@ -13,6 +13,9 @@ export class SensorManager {
     this._geoCallback = null;
 
     this._permissionGranted = false;
+
+    // Heartbeat: track last sensor event time for liveness detection
+    this.lastEventTime = 0;
   }
 
   /**
@@ -116,6 +119,7 @@ export class SensorManager {
         interval: event.interval,
         timestamp: performance.now(),
       };
+      this.lastEventTime = performance.now();
       callback(data);
     };
 
@@ -148,6 +152,7 @@ export class SensorManager {
         compassHeading: event.webkitCompassHeading ?? null,
         timestamp: performance.now(),
       };
+      this.lastEventTime = performance.now();
       callback(data);
     };
 
@@ -204,6 +209,15 @@ export class SensorManager {
       this._geoWatchId = null;
       this._geoCallback = null;
     }
+  }
+
+  /**
+   * Returns true if a sensor event was received recently (within 3 seconds).
+   * Used to detect if iOS has silently killed sensor listeners after app switch.
+   */
+  get isSensorAlive() {
+    if (this.lastEventTime === 0) return false;
+    return (performance.now() - this.lastEventTime) < 3000;
   }
 
   /**
